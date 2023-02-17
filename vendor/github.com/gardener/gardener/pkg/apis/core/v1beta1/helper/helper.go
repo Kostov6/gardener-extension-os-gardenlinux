@@ -20,10 +20,6 @@ import (
 	"strings"
 	"time"
 
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	versionutils "github.com/gardener/gardener/pkg/utils/version"
-
 	"github.com/Masterminds/semver"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -33,17 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
+
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 )
-
-// Clock defines the clock for the helper functions
-// Deprecated: Use ...WithClock(...) functions instead.
-var Clock clock.Clock = clock.RealClock{}
-
-// InitCondition initializes a new Condition with an Unknown status.
-// Deprecated: Use InitConditionWithClock(...) instead.
-func InitCondition(conditionType gardencorev1beta1.ConditionType) gardencorev1beta1.Condition {
-	return InitConditionWithClock(Clock, conditionType)
-}
 
 // InitConditionWithClock initializes a new Condition with an Unknown status. It allows passing a custom clock for testing.
 func InitConditionWithClock(clock clock.Clock, conditionType gardencorev1beta1.ConditionType) gardencorev1beta1.Condition {
@@ -70,13 +60,6 @@ func GetCondition(conditions []gardencorev1beta1.Condition, conditionType garden
 	return nil
 }
 
-// GetOrInitCondition tries to retrieve the condition with the given condition type from the given conditions.
-// If the condition could not be found, it returns an initialized condition of the given type.
-// Deprecated: Use GetOrInitConditionWithClock(...) instead.
-func GetOrInitCondition(conditions []gardencorev1beta1.Condition, conditionType gardencorev1beta1.ConditionType) gardencorev1beta1.Condition {
-	return GetOrInitConditionWithClock(Clock, conditions, conditionType)
-}
-
 // GetOrInitConditionWithClock tries to retrieve the condition with the given condition type from the given conditions.
 // If the condition could not be found, it returns an initialized condition of the given type. It allows passing a custom clock for testing.
 func GetOrInitConditionWithClock(clock clock.Clock, conditions []gardencorev1beta1.Condition, conditionType gardencorev1beta1.ConditionType) gardencorev1beta1.Condition {
@@ -84,12 +67,6 @@ func GetOrInitConditionWithClock(clock clock.Clock, conditions []gardencorev1bet
 		return *condition
 	}
 	return InitConditionWithClock(clock, conditionType)
-}
-
-// UpdatedCondition updates the properties of one specific condition.
-// Deprecated: Use UpdatedConditionWithClock(...) instead.
-func UpdatedCondition(condition gardencorev1beta1.Condition, status gardencorev1beta1.ConditionStatus, reason, message string, codes ...gardencorev1beta1.ErrorCode) gardencorev1beta1.Condition {
-	return UpdatedConditionWithClock(Clock, condition, status, reason, message, codes...)
 }
 
 // UpdatedConditionWithClock updates the properties of one specific condition. It allows passing a custom clock for testing.
@@ -108,21 +85,9 @@ func UpdatedConditionWithClock(clock clock.Clock, condition gardencorev1beta1.Co
 	return newCondition
 }
 
-// UpdatedConditionUnknownError updates the condition to 'Unknown' status and the message of the given error.
-// Deprecated: Use UpdatedConditionUnknownErrorWithClock(...) instead.
-func UpdatedConditionUnknownError(condition gardencorev1beta1.Condition, err error, codes ...gardencorev1beta1.ErrorCode) gardencorev1beta1.Condition {
-	return UpdatedConditionUnknownErrorWithClock(Clock, condition, err, codes...)
-}
-
 // UpdatedConditionUnknownErrorWithClock updates the condition to 'Unknown' status and the message of the given error. It allows passing a custom clock for testing.
 func UpdatedConditionUnknownErrorWithClock(clock clock.Clock, condition gardencorev1beta1.Condition, err error, codes ...gardencorev1beta1.ErrorCode) gardencorev1beta1.Condition {
 	return UpdatedConditionUnknownErrorMessageWithClock(clock, condition, err.Error(), codes...)
-}
-
-// UpdatedConditionUnknownErrorMessage updates the condition with 'Unknown' status and the given message.
-// Deprecated: Use UpdatedConditionUnknownErrorMessageWithClock(...) instead.
-func UpdatedConditionUnknownErrorMessage(condition gardencorev1beta1.Condition, message string, codes ...gardencorev1beta1.ErrorCode) gardencorev1beta1.Condition {
-	return UpdatedConditionUnknownErrorMessageWithClock(Clock, condition, message, codes...)
 }
 
 // UpdatedConditionUnknownErrorMessageWithClock updates the condition with 'Unknown' status and the given message. It allows passing a custom clock for testing.
@@ -529,6 +494,11 @@ func ShootSchedulingProfile(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.S
 		return shoot.Spec.Kubernetes.KubeScheduler.Profile
 	}
 	return nil
+}
+
+// ShootConfinesSpecUpdateRollout returns a bool.
+func ShootConfinesSpecUpdateRollout(maintenance *gardencorev1beta1.Maintenance) bool {
+	return maintenance != nil && maintenance.ConfineSpecUpdateRollout != nil && *maintenance.ConfineSpecUpdateRollout
 }
 
 // SeedSettingVerticalPodAutoscalerEnabled returns true if the 'verticalPodAutoscaler' setting is enabled.
@@ -1006,8 +976,8 @@ func SeedBackupSecretRefEqual(oldBackup, newBackup *gardencorev1beta1.SeedBackup
 // same.
 func ShootDNSProviderSecretNamesEqual(oldDNS, newDNS *gardencorev1beta1.DNS) bool {
 	var (
-		oldNames = sets.NewString()
-		newNames = sets.NewString()
+		oldNames = sets.New[string]()
+		newNames = sets.New[string]()
 	)
 
 	if oldDNS != nil {
@@ -1033,8 +1003,8 @@ func ShootDNSProviderSecretNamesEqual(oldDNS, newDNS *gardencorev1beta1.DNS) boo
 // has been changed.
 func ShootSecretResourceReferencesEqual(oldResources, newResources []gardencorev1beta1.NamedResourceReference) bool {
 	var (
-		oldNames = sets.NewString()
-		newNames = sets.NewString()
+		oldNames = sets.New[string]()
+		newNames = sets.New[string]()
 	)
 
 	for _, resource := range oldResources {
@@ -1128,7 +1098,7 @@ func SecretBindingHasType(secretBinding *gardencorev1beta1.SecretBinding, provid
 		return false
 	}
 
-	return sets.NewString(types...).Has(providerType)
+	return sets.New[string](types...).Has(providerType)
 }
 
 // AddTypeToSecretBinding adds the given provider type to the SecretBinding.
@@ -1141,7 +1111,7 @@ func AddTypeToSecretBinding(secretBinding *gardencorev1beta1.SecretBinding, prov
 	}
 
 	types := GetSecretBindingTypes(secretBinding)
-	if !sets.NewString(types...).Has(providerType) {
+	if !sets.New[string](types...).Has(providerType) {
 		types = append(types, providerType)
 	}
 	secretBinding.Provider.Type = strings.Join(types, ",")
@@ -1194,7 +1164,7 @@ func GetNodeLocalDNS(systemComponents *gardencorev1beta1.SystemComponents) *gard
 }
 
 // GetShootCARotationPhase returns the specified shoot CA rotation phase or an empty string
-func GetShootCARotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.ShootCredentialsRotationPhase {
+func GetShootCARotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.CredentialsRotationPhase {
 	if credentials != nil && credentials.Rotation != nil && credentials.Rotation.CertificateAuthorities != nil {
 		return credentials.Rotation.CertificateAuthorities.Phase
 	}
@@ -1203,7 +1173,11 @@ func GetShootCARotationPhase(credentials *gardencorev1beta1.ShootCredentials) ga
 
 // MutateShootCARotation mutates the .status.credentials.rotation.certificateAuthorities field based on the provided
 // mutation function. If the field is nil then it is initialized.
-func MutateShootCARotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootCARotation)) {
+func MutateShootCARotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.CARotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1211,7 +1185,7 @@ func MutateShootCARotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1b
 		shoot.Status.Credentials.Rotation = &gardencorev1beta1.ShootCredentialsRotation{}
 	}
 	if shoot.Status.Credentials.Rotation.CertificateAuthorities == nil {
-		shoot.Status.Credentials.Rotation.CertificateAuthorities = &gardencorev1beta1.ShootCARotation{}
+		shoot.Status.Credentials.Rotation.CertificateAuthorities = &gardencorev1beta1.CARotation{}
 	}
 
 	f(shoot.Status.Credentials.Rotation.CertificateAuthorities)
@@ -1220,6 +1194,10 @@ func MutateShootCARotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1b
 // MutateShootKubeconfigRotation mutates the .status.credentials.rotation.kubeconfig field based on the provided
 // mutation function. If the field is nil then it is initialized.
 func MutateShootKubeconfigRotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootKubeconfigRotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1251,6 +1229,10 @@ func IsShootKubeconfigRotationInitiationTimeAfterLastCompletionTime(credentials 
 // MutateShootSSHKeypairRotation mutates the .status.credentials.rotation.sshKeypair field based on the provided
 // mutation function. If the field is nil then it is initialized.
 func MutateShootSSHKeypairRotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootSSHKeypairRotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1282,6 +1264,10 @@ func IsShootSSHKeypairRotationInitiationTimeAfterLastCompletionTime(credentials 
 // MutateObservabilityRotation mutates the .status.credentials.rotation.observability field based on the provided
 // mutation function. If the field is nil then it is initialized.
 func MutateObservabilityRotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootObservabilityRotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1312,7 +1298,7 @@ func IsShootObservabilityRotationInitiationTimeAfterLastCompletionTime(credentia
 
 // GetShootServiceAccountKeyRotationPhase returns the specified shoot service account key rotation phase or an empty
 // string.
-func GetShootServiceAccountKeyRotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.ShootCredentialsRotationPhase {
+func GetShootServiceAccountKeyRotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.CredentialsRotationPhase {
 	if credentials != nil && credentials.Rotation != nil && credentials.Rotation.ServiceAccountKey != nil {
 		return credentials.Rotation.ServiceAccountKey.Phase
 	}
@@ -1322,6 +1308,10 @@ func GetShootServiceAccountKeyRotationPhase(credentials *gardencorev1beta1.Shoot
 // MutateShootServiceAccountKeyRotation mutates the .status.credentials.rotation.serviceAccountKey field based on the
 // provided mutation function. If the field is nil then it is initialized.
 func MutateShootServiceAccountKeyRotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootServiceAccountKeyRotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1337,7 +1327,7 @@ func MutateShootServiceAccountKeyRotation(shoot *gardencorev1beta1.Shoot, f func
 
 // GetShootETCDEncryptionKeyRotationPhase returns the specified shoot ETCD encryption key rotation phase or an empty
 // string.
-func GetShootETCDEncryptionKeyRotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.ShootCredentialsRotationPhase {
+func GetShootETCDEncryptionKeyRotationPhase(credentials *gardencorev1beta1.ShootCredentials) gardencorev1beta1.CredentialsRotationPhase {
 	if credentials != nil && credentials.Rotation != nil && credentials.Rotation.ETCDEncryptionKey != nil {
 		return credentials.Rotation.ETCDEncryptionKey.Phase
 	}
@@ -1347,6 +1337,10 @@ func GetShootETCDEncryptionKeyRotationPhase(credentials *gardencorev1beta1.Shoot
 // MutateShootETCDEncryptionKeyRotation mutates the .status.credentials.rotation.etcdEncryptionKey field based on the
 // provided mutation function. If the field is nil then it is initialized.
 func MutateShootETCDEncryptionKeyRotation(shoot *gardencorev1beta1.Shoot, f func(*gardencorev1beta1.ShootETCDEncryptionKeyRotation)) {
+	if f == nil {
+		return
+	}
+
 	if shoot.Status.Credentials == nil {
 		shoot.Status.Credentials = &gardencorev1beta1.ShootCredentials{}
 	}
@@ -1394,6 +1388,11 @@ func IsHAControlPlaneConfigured(shoot *gardencorev1beta1.Shoot) bool {
 // IsMultiZonalShootControlPlane checks if the shoot should have a multi-zonal control plane.
 func IsMultiZonalShootControlPlane(shoot *gardencorev1beta1.Shoot) bool {
 	return shoot.Spec.ControlPlane != nil && shoot.Spec.ControlPlane.HighAvailability != nil && shoot.Spec.ControlPlane.HighAvailability.FailureTolerance.Type == gardencorev1beta1.FailureToleranceTypeZone
+}
+
+// ShootEnablesSSHAccess returns true if ssh access to worker nodes should be allowed for the given shoot.
+func ShootEnablesSSHAccess(shoot *gardencorev1beta1.Shoot) bool {
+	return shoot.Spec.Provider.WorkersSettings == nil || shoot.Spec.Provider.WorkersSettings.SSHAccess == nil || shoot.Spec.Provider.WorkersSettings.SSHAccess.Enabled
 }
 
 // GetFailureToleranceType determines the failure tolerance type of the given shoot.
