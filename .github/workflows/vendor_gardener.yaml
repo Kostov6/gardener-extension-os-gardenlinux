@@ -24,6 +24,8 @@ jobs:
       run: make revendor
     - name: Commit changes
       run: |
+        git config user.name dependabot[bot]
+        git config user.email support@dependabot.com
         git add .
         git commit --amend --no-edit
         git push origin
