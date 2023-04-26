@@ -27,5 +27,5 @@ jobs:
         git config user.name gardener-robot-ci-2 
         git config user.email gardener.ci.user2@gmail.com
         git add .
-        git commit --amend --reset-author --no-edit
-        git push origin -f
+        git commit -m"make revendor"
+        git push origin
