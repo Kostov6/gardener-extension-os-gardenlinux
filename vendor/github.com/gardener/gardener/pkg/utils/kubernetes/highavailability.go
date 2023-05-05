@@ -1,4 +1,4 @@
-// Copyright (c) 2022 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
+// Copyright 2022 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,20 +38,21 @@ func GetReplicaCount(failureToleranceType *gardencorev1beta1.FailureToleranceTyp
 	return pointer.Int32(2)
 }
 
-// GetNodeAffinitySelectorTermsForZones adds a node affinity to ensure all pods are scheduled only on nodes in the provided zones. If
-// no zones are provided then nothing is done.
-func GetNodeAffinitySelectorTermsForZones(failureToleranceType *gardencorev1beta1.FailureToleranceType, zones []string) []corev1.NodeSelectorTerm {
-	if len(zones) == 0 || failureToleranceType == nil {
+// GetNodeSelectorRequirementForZones returns a node selector requirement to ensure all pods are scheduled only on
+// nodes in the provided zones. If no zones are provided then nothing is done.
+// Note that the returned requirement should be added to all existing node selector terms in the
+// spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms field of pods because
+// the various node selector terms are evaluated with the OR operator.
+func GetNodeSelectorRequirementForZones(isZonePinningEnabled bool, zones []string) *corev1.NodeSelectorRequirement {
+	if len(zones) == 0 || !isZonePinningEnabled {
 		return nil
 	}
 
-	return []corev1.NodeSelectorTerm{{
-		MatchExpressions: []corev1.NodeSelectorRequirement{{
-			Key:      corev1.LabelTopologyZone,
-			Operator: corev1.NodeSelectorOpIn,
-			Values:   zones,
-		}},
-	}}
+	return &corev1.NodeSelectorRequirement{
+		Key:      corev1.LabelTopologyZone,
+		Operator: corev1.NodeSelectorOpIn,
+		Values:   zones,
+	}
 }
 
 // GetTopologySpreadConstraints adds topology spread constraints based on the passed `failureToleranceType`. This is
@@ -79,7 +80,11 @@ func GetTopologySpreadConstraints(
 		LabelSelector:     &labelSelector,
 	}}
 
-	if numberOfZones > 1 {
+	// We only want to enforce a spread over zones when there are:
+	// - multiple zones
+	// - AND
+	// - the failure tolerance type is 'nil' (seed/shoot system component case) or 'zone' (shoot control-plane case)
+	if numberOfZones > 1 && (failureToleranceType == nil || *failureToleranceType == gardencorev1beta1.FailureToleranceTypeZone) {
 		maxSkew := int32(1)
 		// Increase maxSkew if there are >= 2*numberOfZones maxReplicas, see https://github.com/kubernetes/kubernetes/issues/109364.
 		if maxReplicas >= 2*numberOfZones {
@@ -88,6 +93,7 @@ func GetTopologySpreadConstraints(
 
 		topologySpreadConstraints = append(topologySpreadConstraints, corev1.TopologySpreadConstraint{
 			TopologyKey:       corev1.LabelTopologyZone,
+			MinDomains:        minDomains(numberOfZones, maxReplicas),
 			MaxSkew:           maxSkew,
 			WhenUnsatisfiable: corev1.DoNotSchedule,
 			LabelSelector:     &labelSelector,
@@ -95,4 +101,15 @@ func GetTopologySpreadConstraints(
 	}
 
 	return topologySpreadConstraints
+}
+
+func minDomains(numberOfZones, maxReplicas int32) *int32 {
+	// If the maximum replica count is lower than the number of zones, then we only need to set 'minDomains' to
+	// the number of replicas because there is no benefit of enforcing a further zone spread for additional replicas,
+	// e.g. when a rolling update is performed.
+	if maxReplicas < numberOfZones {
+		return pointer.Int32(maxReplicas)
+	}
+	// Return the number of zones otherwise because it's not possible to spread pods over more zones than there are available.
+	return pointer.Int32(numberOfZones)
 }
