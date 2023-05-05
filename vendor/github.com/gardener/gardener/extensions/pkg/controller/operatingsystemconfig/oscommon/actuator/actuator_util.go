@@ -1,4 +1,4 @@
-// Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
+// Copyright 2019 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@ package actuator
 import (
 	"context"
 
-	commonosgenerator "github.com/gardener/gardener/extensions/pkg/controller/operatingsystemconfig/oscommon/generator"
-	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	commonosgenerator "github.com/gardener/gardener/extensions/pkg/controller/operatingsystemconfig/oscommon/generator"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
+	kubernetesutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 )
 
 // CloudConfigFromOperatingSystemConfig generates a CloudConfig from an OperatingSystemConfig
@@ -84,7 +84,7 @@ func DataForFileContent(ctx context.Context, c client.Client, namespace string, 
 	}
 
 	secret := &corev1.Secret{}
-	if err := c.Get(ctx, kutil.Key(namespace, content.SecretRef.Name), secret); err != nil {
+	if err := c.Get(ctx, kubernetesutils.Key(namespace, content.SecretRef.Name), secret); err != nil {
 		return nil, err
 	}
 
