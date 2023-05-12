@@ -9,3 +9,8 @@ updates:
   - dependency-name: "github.com/gardener/gardener"
   labels:
   - kind/enhancement
+# Maintain dependencies for docker
+- package-ecosystem: "docker"
+  directory: "/"
+  schedule:
+    interval: daily
